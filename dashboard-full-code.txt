@@ -1,0 +1,1746 @@
+﻿
+==================== app\dashboard\page.tsx ====================
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import Link from "next/link";
+import CareerInsights from "@/components/dashboard/CareerInsights";
+import NotificationCenter from "@/components/dashboard/NotificationCenter";
+
+
+import { getAchievements } from "@/actions/achievements";
+import AchievementsSection from "@/components/dashboard/AchievementsSection";
+
+import PlacementReadinessCard from "@/components/dashboard/PlacementReadinessCard";
+
+import {
+  calculatePlacementReadiness,
+} from "@/actions/placement-readiness";
+
+
+export default async function DashboardPage() {
+  const session = await auth();
+
+  const user = await prisma.user.findUnique({
+    where: {
+      email: session?.user?.email ?? "",
+    },
+    include: {
+      interviews: true,
+      resumes: true,
+    },
+  });
+
+  const achievements =
+    await getAchievements();
+
+  const readiness =
+    await calculatePlacementReadiness();
+
+  const totalInterviews =
+    user?.interviews.length ?? 0;
+
+  const totalResumes =
+    user?.resumes.length ?? 0;
+
+  const avgScore =
+    totalInterviews > 0
+      ? Math.round(
+        user!.interviews.reduce(
+          (sum, interview) =>
+            sum + (interview.score ?? 0),
+          0
+        ) / totalInterviews
+      )
+      : 0;
+
+  const latestInterview =
+    user?.interviews.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime()
+    )[0];
+
+  const careerLevel =
+    avgScore >= 80
+      ? "Job Ready ðŸš€"
+      : avgScore >= 60
+        ? "Growing ðŸ“ˆ"
+        : "Learning ðŸŒ±";
+
+  return (
+    <main className="space-y-8">
+      {/* Hero Section */}
+      <div className="rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-xl">
+        <h1 className="text-4xl font-bold">
+          Welcome Back,
+          {" "}
+          {user?.name || "Developer"} ðŸ‘‹
+        </h1>
+
+        <p className="mt-3 text-lg text-blue-100">
+          Track your interview performance,
+          resume progress and career growth.
+        </p>
+
+        <div className="mt-6 flex gap-4">
+          <Link
+            href="/dashboard/interviews"
+            className="rounded-xl bg-white px-5 py-3 font-semibold text-blue-600"
+          >
+            Start Interview
+          </Link>
+
+          <Link
+            href="/dashboard/resume"
+            className="rounded-xl border border-white px-5 py-3 font-semibold"
+          >
+            Analyze Resume
+          </Link>
+          <Link
+            href="/dashboard/mock-interview"
+            className="rounded-xl bg-blue-600 px-6 py-3 text-white font-semibold"
+          >
+            Start AI Mock Interview
+          </Link>
+
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-3xl border bg-white p-6 shadow-sm dark:bg-slate-900">
+          <p className="text-sm text-slate-500">
+            Total Interviews
+          </p>
+
+          <h2 className="mt-3 text-4xl font-bold">
+            {totalInterviews}
+          </h2>
+        </div>
+
+        <div className="rounded-3xl border bg-white p-6 shadow-sm dark:bg-slate-900">
+          <p className="text-sm text-slate-500">
+            Average Score
+          </p>
+
+          <h2 className="mt-3 text-4xl font-bold text-blue-600">
+            {avgScore}%
+          </h2>
+        </div>
+
+        <div className="rounded-3xl border bg-white p-6 shadow-sm dark:bg-slate-900">
+          <p className="text-sm text-slate-500">
+            Uploaded Resumes
+          </p>
+
+          <h2 className="mt-3 text-4xl font-bold text-green-600">
+            {totalResumes}
+          </h2>
+        </div>
+
+        <div className="rounded-3xl border bg-white p-6 shadow-sm dark:bg-slate-900">
+          <p className="text-sm text-slate-500">
+            Career Level
+          </p>
+
+          <h2 className="mt-3 text-2xl font-bold text-purple-600">
+            {careerLevel}
+          </h2>
+        </div>
+      </div>
+
+      {/* Career Score */}
+      <div className="rounded-3xl border bg-white p-8 shadow-sm dark:bg-slate-900">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">
+              AI Career Score
+            </h2>
+
+            <p className="mt-2 text-slate-500">
+              Based on interviews and
+              resume performance.
+            </p>
+          </div>
+
+          <div className="text-5xl font-bold text-blue-600">
+            {avgScore}
+          </div>
+        </div>
+
+        <div className="mt-6 h-5 overflow-hidden rounded-full bg-slate-200">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-1000"
+            style={{
+              width: `${avgScore}%`,
+            }}
+          />
+        </div>
+      </div>
+
+      <CareerInsights
+        averageScore={avgScore}
+        totalInterviews={totalInterviews}
+      />
+
+      {readiness && (
+        <PlacementReadinessCard
+          score={readiness.score}
+          resumeScore={readiness.resumeScore}
+          interviewScore={readiness.interviewScore}
+          codingScore={readiness.codingScore}
+          roadmapScore={readiness.roadmapScore}
+        />
+      )}
+
+      <NotificationCenter />
+
+      <AchievementsSection
+        achievements={achievements}
+      />
+
+      {/* Latest Activity */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-3xl border bg-white p-8 shadow-sm dark:bg-slate-900">
+          <h2 className="mb-4 text-2xl font-bold">
+            Latest Interview
+          </h2>
+
+          {latestInterview ? (
+            <>
+              <h3 className="text-xl font-semibold">
+                {latestInterview.title}
+              </h3>
+
+              <p className="mt-2 text-slate-500">
+                Role:{" "}
+                {latestInterview.role ||
+                  "Not specified"}
+              </p>
+
+              <p className="mt-2 text-slate-500">
+                Score:{" "}
+                {latestInterview.score ??
+                  "Pending"}
+              </p>
+
+              <Link
+                href={`/dashboard/interviews/${latestInterview.id}`}
+                className="mt-5 inline-block rounded-xl bg-blue-600 px-5 py-3 text-white"
+              >
+                Continue â†’
+              </Link>
+            </>
+          ) : (
+            <p className="text-slate-500">
+              No interviews yet.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-3xl border bg-white p-8 shadow-sm dark:bg-slate-900">
+          <h2 className="mb-4 text-2xl font-bold">
+            Quick Actions
+          </h2>
+
+          <div className="space-y-3">
+            <Link
+              href="/dashboard/resume"
+              className="block rounded-xl border p-4 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              ðŸ“„ Analyze Resume
+            </Link>
+
+            <Link
+              href="/dashboard/interviews"
+              className="block rounded-xl border p-4 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              ðŸŽ¤ Practice Interview
+            </Link>
+
+
+
+            <Link
+              href={`/profile/${user?.username}`}
+              target="_blank"
+              className="rounded-xl bg-green-600 px-5 py-3 text-white"
+            >
+              Share Profile
+            </Link>
+            <Link
+              href="/dashboard/roadmap"
+              className="block rounded-xl border p-4 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              ðŸ—ºï¸ View Career Roadmap
+            </Link>
+
+            <Link
+  href="/dashboard/company-tracker"
+  className="block rounded-xl border p-4 hover:bg-slate-50 dark:hover:bg-slate-800"
+>
+  ðŸ¢ Company Tracker
+</Link>
+
+            <Link
+              href="/dashboard/analytics"
+              className="block rounded-xl border p-4 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              ðŸ“Š Performance Analytics
+            </Link>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+==================== app\dashboard\layout.tsx ====================
+import Sidebar from "@/components/dashboard/sidebar";
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar />
+
+      <main className="flex-1 bg-slate-50 dark:bg-slate-950">
+        {children}
+      </main>
+    </div>
+  );
+}
+==================== components\dashboard\sidebar.tsx ====================
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Code2 } from "lucide-react";
+
+import {
+  signOut,
+  useSession,
+} from "next-auth/react";
+
+import {
+  LayoutDashboard,
+  FileText,
+  Briefcase,
+  BarChart3,
+  Settings,
+  Map,
+  Award,
+  Target,
+  Sparkles,
+  LogIn,
+  UserPlus,
+  LogOut,
+  User,
+} from "lucide-react";
+
+const links = [
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+  },
+
+
+
+  {
+    href: "/dashboard/resume",
+    label: "Resume Analyzer",
+    icon: FileText,
+  },
+
+  {
+    href: "/dashboard/resume-builder",
+    label: "Resume Builder",
+    icon: FileText,
+  },
+  {
+    href: "/dashboard/coding",
+    label: "Coding Practice",
+    icon: Code2,
+  },
+
+  {
+  href: "/recruiter",
+  label: "Recruiter",
+  icon: Briefcase,
+},
+
+{
+  href: "/dashboard/job-match",
+  label: "Job Match",
+  icon: Target,
+},
+{
+  href: "/admin",
+  label: "Admin",
+  icon: Settings,
+},
+
+  {
+  href: "/dashboard/leaderboard",
+  label: "Leaderboard",
+  icon: Award,
+},
+
+  {
+    href: "/dashboard/interviews",
+    label: "Interviews",
+    icon: Briefcase,
+  },
+
+  {
+    href: "/dashboard/mock-interview",
+    label: "AI Mock Interview",
+    icon: Briefcase,
+  },
+
+  {
+    href: "/dashboard/interview-analytics",
+    label: "Interview Analytics",
+    icon: BarChart3,
+  },
+
+  {
+    href: "/dashboard/jobs",
+    label: "Job Tracker",
+    icon: Briefcase,
+  },
+
+  {
+    href: "/dashboard/jobs/recommendations",
+    label: "AI Recommendations",
+    icon: Sparkles,
+  },
+
+  {
+    href: "/dashboard/roadmap",
+    label: "Career Roadmap",
+    icon: Map,
+  },
+
+  {
+    href: "/dashboard/career-gap",
+    label: "Career Gap",
+    icon: Target,
+  },
+
+  {
+    href: "/dashboard/certificate",
+    label: "Certificate",
+    icon: Award,
+  },
+
+  {
+    href: "/dashboard/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+  },
+
+
+  {
+    href: "/dashboard/settings",
+    label: "Settings",
+    icon: Settings,
+  },
+];
+
+export default function Sidebar() {
+  const pathname = usePathname();
+
+  const { data: session } =
+    useSession();
+
+  return (
+    <aside className="flex h-screen w-72 flex-col border-r border-slate-800 bg-slate-950 text-white">
+
+      {/* LOGO */}
+
+      <div className="border-b border-slate-800 p-6">
+
+        <h1 className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-2xl font-extrabold text-transparent">
+          AI Career Coach
+        </h1>
+
+        <p className="mt-1 text-xs text-slate-400">
+          Interview Preparation Platform
+        </p>
+
+      </div>
+
+      {/* NAVIGATION */}
+
+      <nav className="flex-1 space-y-2 overflow-y-auto p-4">
+
+        {links.map((link) => {
+          const Icon = link.icon;
+
+          const active =
+            pathname === link.href ||
+            pathname.startsWith(
+              `${link.href}/`
+            );
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`group flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all duration-200 ${active
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+            >
+              <Icon
+                size={20}
+                className={`transition-transform duration-200 ${active
+                    ? "scale-110"
+                    : "group-hover:scale-110"
+                  }`}
+              />
+
+              <span>{link.label}</span>
+            </Link>
+          );
+        })}
+
+      </nav>
+
+      {/* AUTH SECTION */}
+
+      <div className="border-t border-slate-800 p-4">
+
+        {!session ? (
+
+          <div className="space-y-3">
+
+            <Link
+              href="/login"
+              className="flex items-center gap-3 rounded-xl bg-slate-800 px-4 py-3 text-slate-300 transition hover:bg-slate-700"
+            >
+              <LogIn size={18} />
+              Login
+            </Link>
+
+            
+
+            <Link
+              href="/register"
+              className="flex items-center gap-3 rounded-xl bg-blue-600 px-4 py-3 text-white transition hover:bg-blue-700"
+            >
+              <UserPlus size={18} />
+              Register
+            </Link>
+
+          </div>
+
+        ) : (
+
+          <div className="space-y-4">
+
+            {/* USER CARD */}
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+
+              <div className="mb-3 flex items-center gap-3">
+
+                <div className="rounded-full bg-blue-600 p-2">
+
+                  <User size={18} />
+
+                </div>
+
+                <div>
+
+                  <h3 className="font-semibold">
+                    {session.user?.name}
+                  </h3>
+
+                  <p className="text-xs text-slate-400">
+                    {session.user?.email}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* LOGOUT */}
+
+            <button
+              onClick={() =>
+                signOut({
+                  callbackUrl:
+                    "/login",
+                })
+              }
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-white transition hover:bg-red-700"
+            >
+              <LogOut size={18} />
+              Logout
+            </button>
+
+          </div>
+
+        )}
+
+      </div>
+
+      {/* AI CAREER SCORE */}
+
+      <div className="p-4">
+
+        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+
+          <h3 className="font-semibold text-blue-400">
+            AI Career Score
+          </h3>
+
+          <p className="mt-2 text-sm text-slate-300">
+            Complete interviews and resume
+            analysis to unlock advanced
+            insights.
+          </p>
+
+        </div>
+
+      </div>
+
+    </aside>
+  );
+}
+==================== components\dashboard\CareerInsights.tsx ====================
+interface Props {
+  averageScore: number;
+  totalInterviews: number;
+}
+
+export default function CareerInsights({
+  averageScore,
+  totalInterviews,
+}: Props) {
+  let recommendation = "";
+  let level = "";
+
+  if (averageScore >= 85) {
+    level = "Placement Ready ðŸš€";
+
+    recommendation =
+      "Start applying for internships and product companies.";
+  } else if (averageScore >= 70) {
+    level = "Strong Candidate ðŸ“ˆ";
+
+    recommendation =
+      "Focus on DSA and Mock Interviews.";
+  } else if (averageScore >= 50) {
+    level = "Improving ðŸŒ±";
+
+    recommendation =
+      "Practice technical interviews weekly.";
+  } else {
+    level = "Beginner ðŸ”¥";
+
+    recommendation =
+      "Work on resume, projects and communication skills.";
+  }
+
+  return (
+    <div className="rounded-3xl border bg-white p-8 shadow-sm dark:bg-slate-900">
+
+      <h2 className="text-2xl font-bold">
+        AI Career Insights
+      </h2>
+
+      <div className="mt-6 space-y-4">
+
+        <div>
+          <p className="text-slate-500">
+            Career Level
+          </p>
+
+          <h3 className="text-2xl font-bold text-blue-600">
+            {level}
+          </h3>
+        </div>
+
+        <div>
+          <p className="text-slate-500">
+            Total Practice
+          </p>
+
+          <h3 className="text-xl font-semibold">
+            {totalInterviews} Interviews
+          </h3>
+        </div>
+
+        <div>
+          <p className="text-slate-500">
+            AI Recommendation
+          </p>
+
+          <p className="font-medium">
+            {recommendation}
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  );
+}   
+==================== components\dashboard\NotificationCenter.tsx ====================
+interface Notification {
+  id: number;
+  title: string;
+  message: string;
+}
+
+export default function NotificationCenter() {
+  const notifications: Notification[] = [
+    {
+      id: 1,
+      title: "Resume Analysis",
+      message:
+        "Your ATS score improved by 12 points.",
+    },
+
+    {
+      id: 2,
+      title: "Interview Progress",
+      message:
+        "You completed 5 mock interviews this week.",
+    },
+
+    {
+      id: 3,
+      title: "Coding Practice",
+      message:
+        "Your coding score increased by 8%.",
+    },
+
+    {
+      id: 4,
+      title: "Career Roadmap",
+      message:
+        "A new roadmap has been generated.",
+    },
+  ];
+
+  return (
+    <div className="rounded-3xl border bg-white p-8 shadow-sm dark:bg-slate-900">
+
+      <h2 className="text-2xl font-bold">
+        AI Notifications
+      </h2>
+
+      <div className="mt-6 space-y-4">
+
+        {notifications.map((item) => (
+          <div
+            key={item.id}
+            className="rounded-xl border p-4"
+          >
+            <h3 className="font-bold">
+              {item.title}
+            </h3>
+
+            <p className="mt-1 text-sm text-slate-500">
+              {item.message}
+            </p>
+          </div>
+        ))}
+
+      </div>
+
+    </div>
+  );
+}
+==================== components\dashboard\AchievementsSection.tsx ====================
+import AchievementCard from "./AchievementCard";
+
+interface Props {
+  achievements: any[];
+}
+
+export default function AchievementsSection({
+  achievements,
+}: Props) {
+  return (
+    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-sm">
+
+      <h2 className="text-2xl font-bold text-white">
+        Achievements
+      </h2>
+
+      {achievements.length === 0 ? (
+        <p className="mt-4 text-slate-400">
+          No achievements unlocked yet.
+        </p>
+      ) : (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {achievements.map((achievement) => (
+            <AchievementCard
+              key={achievement.id}
+              title={achievement.title}
+              description={achievement.description}
+              earned={achievement.earned}
+            />
+          ))}
+        </div>
+      )}
+
+    </div>
+  );
+}
+==================== components\dashboard\AchievementCard.tsx ====================
+interface Props {
+  title: string;
+  description: string;
+  earned: boolean;
+}
+
+export default function AchievementCard({
+  title,
+  description,
+  earned,
+}: Props) {
+  return (
+    <div
+      className={`rounded-2xl border p-5 transition ${
+        earned
+          ? "border-green-500 bg-green-500/10"
+          : "border-slate-700 bg-slate-800"
+      }`}
+    >
+      <h3 className="text-lg font-bold text-white">
+        {title}
+      </h3>
+
+      <p className="mt-2 text-sm text-slate-300">
+        {description}
+      </p>
+
+      <div className="mt-4">
+        {earned ? (
+          <span className="font-semibold text-green-400">
+            âœ… Unlocked
+          </span>
+        ) : (
+          <span className="font-semibold text-slate-500">
+            ðŸ”’ Locked
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+==================== components\dashboard\PlacementReadinessCard.tsx ====================
+interface Props {
+  score: number;
+  resumeScore: number;
+  interviewScore: number;
+  codingScore: number;
+  roadmapScore: number;
+}
+
+export default function PlacementReadinessCard({
+  score,
+  resumeScore,
+  interviewScore,
+  codingScore,
+  roadmapScore,
+}: Props) {
+  return (
+    <div className="rounded-3xl border bg-white p-8 shadow-sm dark:bg-slate-900">
+
+      <div className="flex items-center justify-between">
+
+        <div>
+          <h2 className="text-2xl font-bold">
+            Placement Readiness
+          </h2>
+
+          <p className="mt-2 text-slate-500">
+            AI calculated placement score
+          </p>
+        </div>
+
+        <div className="text-5xl font-extrabold text-blue-600">
+          {score}
+        </div>
+
+      </div>
+
+      <div className="mt-6 h-4 overflow-hidden rounded-full bg-slate-200">
+
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-green-500 to-blue-600"
+          style={{
+            width: `${score}%`,
+          }}
+        />
+
+      </div>
+
+      <div className="mt-8 grid gap-4 md:grid-cols-4">
+
+        <div className="rounded-xl border p-4">
+          <p className="text-sm text-slate-500">
+            Resume
+          </p>
+
+          <p className="text-2xl font-bold">
+            {resumeScore}
+          </p>
+        </div>
+
+        <div className="rounded-xl border p-4">
+          <p className="text-sm text-slate-500">
+            Interview
+          </p>
+
+          <p className="text-2xl font-bold">
+            {interviewScore}
+          </p>
+        </div>
+
+        <div className="rounded-xl border p-4">
+          <p className="text-sm text-slate-500">
+            Coding
+          </p>
+
+          <p className="text-2xl font-bold">
+            {codingScore}
+          </p>
+        </div>
+
+        <div className="rounded-xl border p-4">
+          <p className="text-sm text-slate-500">
+            Roadmap
+          </p>
+
+          <p className="text-2xl font-bold">
+            {roadmapScore}
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+==================== components\dashboard\interview-chart.tsx ====================
+"use client";
+
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+export default function InterviewChart({
+  data,
+}: {
+  data: {
+    name: string;
+    score: number;
+  }[];
+}) {
+  return (
+    <div className="h-[300px]">
+      <ResponsiveContainer>
+        <LineChart data={data}>
+          <XAxis dataKey="name" />
+
+          <YAxis />
+
+          <Tooltip />
+
+          <Line
+            type="monotone"
+            dataKey="score"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+==================== components\dashboard\stats-card.tsx ====================
+"use client";
+
+import { ReactNode } from "react";
+import { motion } from "framer-motion";
+
+interface StatsCardProps {
+  title: string;
+  value: string | number;
+  icon: ReactNode;
+}
+
+export default function StatsCard({
+  title,
+  value,
+  icon,
+}: StatsCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      whileHover={{
+        y: -5,
+        scale: 1.02,
+      }}
+      className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {title}
+          </p>
+
+          <h3 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
+            {value}
+          </h3>
+        </div>
+
+        <div className="rounded-xl bg-blue-100 p-3 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+          {icon}
+        </div>
+      </div>
+    </motion.div>
+  );
+}   
+==================== lib\prisma.ts ====================
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+==================== lib\auth.ts ====================
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "./prisma";
+import bcrypt from "bcryptjs";
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: PrismaAdapter(prisma),
+
+  session: {
+    strategy: "jwt",
+  },
+
+  providers: [
+    Credentials({
+      name: "credentials",
+
+      credentials: {
+        email: {},
+        password: {},
+      },
+
+      async authorize(credentials) {
+        const email = credentials.email as string;
+        const password = credentials.password as string;
+
+        const user = await prisma.user.findUnique({
+          where: {
+            email,
+          },
+        });
+
+        if (!user || !user.password) {
+          return null;
+        }
+
+        const passwordMatch = await bcrypt.compare(
+          password,
+          user.password
+        );
+
+        if (!passwordMatch) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        };
+      },
+    }),
+  ],
+
+  pages: {
+    signIn: "/login",
+  },
+
+  secret: process.env.AUTH_SECRET,
+});
+==================== actions\achievements.ts ====================
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+
+export async function getAchievements() {
+  const session = await auth();
+
+  if (!session?.user?.email) {
+    return [];
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      email: session.user.email,
+    },
+  });
+
+  if (!user) {
+    return [];
+  }
+
+  return prisma.achievement.findMany({
+    where: {
+      userId: user.id,
+    },
+  });
+}
+==================== actions\placement-readiness.ts ====================
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+
+export async function calculatePlacementReadiness() {
+  const session = await auth();
+
+  if (!session?.user?.email) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      email: session.user.email,
+    },
+    include: {
+      resumes: {
+        include: {
+          resumeAnalysis: true,
+        },
+      },
+      interviews: true,
+      CodingSubmission: true,
+      CareerRoadmap: true,
+    },
+  });
+
+  if (!user) return null;
+
+  // Resume Score
+  const resumeScore =
+    user.resumes.length > 0
+      ? Math.round(
+          user.resumes.reduce(
+            (sum, resume) =>
+              sum +
+              (resume.resumeAnalysis?.score || 0),
+            0
+          ) / user.resumes.length
+        )
+      : 0;
+
+  // Interview Score
+  const interviewScore =
+    user.interviews.length > 0
+      ? Math.round(
+          user.interviews.reduce(
+            (sum, interview) =>
+              sum + (interview.score || 0),
+            0
+          ) / user.interviews.length
+        )
+      : 0;
+
+  // Coding Score
+  const codingScore =
+    user.CodingSubmission.length > 0
+      ? Math.round(
+          user.CodingSubmission.reduce(
+            (sum, submission) =>
+              sum + submission.score,
+            0
+          ) / user.CodingSubmission.length
+        )
+      : 0;
+
+  // Roadmap Score
+  const roadmapScore =
+    user.CareerRoadmap.length > 0 ? 100 : 0;
+
+  // Final Placement Score
+  const finalScore = Math.round(
+    resumeScore * 0.4 +
+      interviewScore * 0.3 +
+      codingScore * 0.2 +
+      roadmapScore * 0.1
+  );
+
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+  const recommendations: string[] = [];
+
+  if (resumeScore >= 80)
+    strengths.push("Strong Resume");
+  else {
+    weaknesses.push("Resume Quality");
+    recommendations.push(
+      "Improve resume and ATS score"
+    );
+  }
+
+  if (interviewScore >= 80)
+    strengths.push("Interview Skills");
+  else {
+    weaknesses.push("Interview Performance");
+    recommendations.push(
+      "Practice more mock interviews"
+    );
+  }
+
+  if (codingScore >= 70)
+    strengths.push("Coding Skills");
+  else {
+    weaknesses.push("Coding Practice");
+    recommendations.push(
+      "Solve more coding problems"
+    );
+  }
+
+  if (roadmapScore === 100)
+    strengths.push("Career Planning");
+  else {
+    recommendations.push(
+      "Generate a career roadmap"
+    );
+  }
+
+  await prisma.placementReadiness.upsert({
+    where: {
+      userId: user.id,
+    },
+    update: {
+      score: finalScore,
+      resumeScore,
+      interviewScore,
+      codingScore,
+      roadmapScore,
+      strengths,
+      weaknesses,
+      recommendations,
+    },
+    create: {
+      userId: user.id,
+      score: finalScore,
+      resumeScore,
+      interviewScore,
+      codingScore,
+      roadmapScore,
+      strengths,
+      weaknesses,
+      recommendations,
+    },
+  });
+
+  return {
+    score: finalScore,
+    resumeScore,
+    interviewScore,
+    codingScore,
+    roadmapScore,
+    strengths,
+    weaknesses,
+    recommendations,
+  };
+}
+==================== prisma\schema.prisma ====================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+}
+
+enum InterviewType {
+  TECHNICAL
+  HR
+  BEHAVIORAL
+  SYSTEM_DESIGN
+}
+
+model User {
+  theme String @default("dark")
+
+  notifications Boolean @default(true)
+
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+
+  accounts Account[]
+  sessions Session[]
+
+  resumes    Resume[]
+  interviews Interview[]
+  analytics  Analytics?
+
+  subscription Subscription?
+
+  jobApplications JobApplication[]
+
+  mockInterviews MockInterview[]
+
+  achievements Achievement[] // ðŸ‘ˆ ADD THIS
+
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  MockInterviewResult MockInterviewResult[]
+  CareerRoadmap       CareerRoadmap[]
+  CodingSubmission    CodingSubmission[]
+  PlacementReadiness  PlacementReadiness?
+  JobMatch            JobMatch[]
+  CompanyApplication  CompanyApplication[]
+}
+
+model Resume {
+  id            String  @id @default(cuid())
+  title         String
+  fileUrl       String
+  extractedText String?
+
+  atsScore Int?
+  feedback String?
+
+  skills String[] @default([])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  resumeAnalysis ResumeAnalysis?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ResumeAnalysis {
+  id String @id @default(cuid())
+
+  score Float
+
+  strengths   String[]
+  weaknesses  String[]
+  suggestions String[]
+
+  skillsScore     Float?
+  projectsScore   Float?
+  experienceScore Float?
+  educationScore  Float?
+
+  resumeId String @unique
+
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Interview {
+  id String @id @default(cuid())
+
+  title String
+  role  String?
+
+  experience String?
+  difficulty String?
+
+  type InterviewType
+
+  score    Float?
+  feedback String?
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questions InterviewQuestion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InterviewQuestion {
+  id String @id @default(cuid())
+
+  question String
+  answer   String?
+
+  score    Float?
+  feedback String?
+
+  interviewId String
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Analytics {
+  id String @id @default(cuid())
+
+  totalInterviews Int   @default(0)
+  averageScore    Float @default(0)
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscription {
+  id String @id @default(cuid())
+
+  plan SubscriptionPlan @default(FREE)
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id String @id @default(cuid())
+
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+
+  refresh_token String?
+  access_token  String?
+  expires_at    Int?
+  token_type    String?
+  scope         String?
+  id_token      String?
+  session_state String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  sessionToken String @unique
+
+  userId  String
+  expires DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model JobApplication {
+  id String @id @default(cuid())
+
+  company String
+  role    String
+
+  status JobStatus
+
+  location String?
+
+  salary String?
+
+  jobUrl String?
+
+  notes String?
+
+  aiMatchScore Int?
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum JobStatus {
+  SAVED
+  APPLIED
+  INTERVIEW
+  OFFER
+  REJECTED
+}
+
+model JobRecommendation {
+  id String @id @default(cuid())
+
+  title    String
+  company  String
+  location String
+
+  salary String?
+
+  skills String[]
+
+  description String
+
+  createdAt DateTime @default(now())
+}
+
+model MockInterview {
+  id String @id @default(cuid())
+
+  role String
+
+  difficulty String
+
+  score Float?
+
+  feedback String?
+
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model MockInterviewResult {
+  id String @id @default(cuid())
+
+  score Int
+
+  technical Int
+
+  communication Int
+
+  confidence Int
+
+  feedback String
+
+  strengths String[]
+
+  improvements String[]
+
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model CareerRoadmap {
+  id String @id @default(cuid())
+
+  title String
+
+  role String
+
+  roadmap Json
+
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model CodingProblem {
+  id String @id @default(cuid())
+
+  title String
+
+  difficulty String
+
+  description String
+
+  starterCode String
+
+  testCases Json
+
+  solution String
+
+  submissions CodingSubmission[]
+
+  createdAt DateTime @default(now())
+}
+
+model CodingSubmission {
+  id String @id @default(cuid())
+
+  code String
+
+  score Int
+
+  complexity String?
+
+  feedback String?
+
+  strengths String[] @default([])
+
+  weaknesses String[] @default([])
+
+  executionTime Int?
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  problemId String
+  problem   CodingProblem @relation(fields: [problemId], references: [id])
+}
+
+model Achievement {
+  id String @id @default(cuid())
+
+  title       String
+  description String
+
+  icon String
+
+  earned Boolean @default(false)
+
+  earnedAt DateTime?
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model PlacementReadiness {
+  id String @id @default(cuid())
+
+  score Float
+
+  resumeScore Float
+
+  interviewScore Float
+
+  codingScore Float
+
+  roadmapScore Float
+
+  strengths String[]
+
+  weaknesses String[]
+
+  recommendations String[]
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobMatch {
+  id String @id @default(cuid())
+
+  jobTitle String
+  company  String?
+
+  jobDescription String
+
+  matchScore Int
+
+  matchedSkills String[]
+  missingSkills String[]
+  suggestions   String[]
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model CompanyApplication {
+  id String @id @default(cuid())
+
+  company String
+
+  role String
+
+  status String
+
+  appliedAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model CampusCompany {
+  id String @id @default(cuid())
+
+  companyName String
+  role        String
+
+  package String
+
+  cgpaCriteria Float?
+
+  branches String[]
+
+  deadline DateTime?
+
+  status String
+
+  createdAt DateTime @default(now())
+}
+

@@ -1,0 +1,462 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+}
+
+enum InterviewType {
+  TECHNICAL
+  HR
+  BEHAVIORAL
+  SYSTEM_DESIGN
+}
+
+model User {
+  theme String @default("dark")
+
+  notifications Boolean @default(true)
+
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+
+  accounts Account[]
+  sessions Session[]
+
+  resumes    Resume[]
+  interviews Interview[]
+  analytics  Analytics?
+
+  subscription Subscription?
+
+  jobApplications JobApplication[]
+
+  mockInterviews MockInterview[]
+
+  achievements Achievement[] // 👈 ADD THIS
+
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  MockInterviewResult MockInterviewResult[]
+  CareerRoadmap       CareerRoadmap[]
+  CodingSubmission    CodingSubmission[]
+  PlacementReadiness  PlacementReadiness?
+  JobMatch            JobMatch[]
+  CompanyApplication  CompanyApplication[]
+}
+
+model Resume {
+  id            String  @id @default(cuid())
+  title         String
+  fileUrl       String
+  extractedText String?
+
+  atsScore Int?
+  feedback String?
+
+  skills String[] @default([])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  resumeAnalysis ResumeAnalysis?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ResumeAnalysis {
+  id String @id @default(cuid())
+
+  score Float
+
+  strengths   String[]
+  weaknesses  String[]
+  suggestions String[]
+
+  skillsScore     Float?
+  projectsScore   Float?
+  experienceScore Float?
+  educationScore  Float?
+
+  resumeId String @unique
+
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Interview {
+  id String @id @default(cuid())
+
+  title String
+  role  String?
+
+  experience String?
+  difficulty String?
+
+  type InterviewType
+
+  score    Float?
+  feedback String?
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questions InterviewQuestion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InterviewQuestion {
+  id String @id @default(cuid())
+
+  question String
+  answer   String?
+
+  score    Float?
+  feedback String?
+
+  interviewId String
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Analytics {
+  id String @id @default(cuid())
+
+  totalInterviews Int   @default(0)
+  averageScore    Float @default(0)
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscription {
+  id String @id @default(cuid())
+
+  plan SubscriptionPlan @default(FREE)
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id String @id @default(cuid())
+
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+
+  refresh_token String?
+  access_token  String?
+  expires_at    Int?
+  token_type    String?
+  scope         String?
+  id_token      String?
+  session_state String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  sessionToken String @unique
+
+  userId  String
+  expires DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model JobApplication {
+  id String @id @default(cuid())
+
+  company String
+  role    String
+
+  status JobStatus
+
+  location String?
+
+  salary String?
+
+  jobUrl String?
+
+  notes String?
+
+  aiMatchScore Int?
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum JobStatus {
+  SAVED
+  APPLIED
+  INTERVIEW
+  OFFER
+  REJECTED
+}
+
+model JobRecommendation {
+  id String @id @default(cuid())
+
+  title    String
+  company  String
+  location String
+
+  salary String?
+
+  skills String[]
+
+  description String
+
+  createdAt DateTime @default(now())
+}
+
+model MockInterview {
+  id String @id @default(cuid())
+
+  role String
+
+  difficulty String
+
+  score Float?
+
+  feedback String?
+
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model MockInterviewResult {
+  id String @id @default(cuid())
+
+  score Int
+
+  technical Int
+
+  communication Int
+
+  confidence Int
+
+  feedback String
+
+  strengths String[]
+
+  improvements String[]
+
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model CareerRoadmap {
+  id String @id @default(cuid())
+
+  title String
+
+  role String
+
+  roadmap Json
+
+  createdAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model CodingProblem {
+  id String @id @default(cuid())
+
+  title String
+
+  difficulty String
+
+  description String
+
+  starterCode String
+
+  testCases Json
+
+  solution String
+
+  submissions CodingSubmission[]
+
+  createdAt DateTime @default(now())
+}
+
+model CodingSubmission {
+  id String @id @default(cuid())
+
+  code String
+
+  score Int
+
+  complexity String?
+
+  feedback String?
+
+  strengths String[] @default([])
+
+  weaknesses String[] @default([])
+
+  executionTime Int?
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  problemId String
+  problem   CodingProblem @relation(fields: [problemId], references: [id])
+}
+
+model Achievement {
+  id String @id @default(cuid())
+
+  title       String
+  description String
+
+  icon String
+
+  earned Boolean @default(false)
+
+  earnedAt DateTime?
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model PlacementReadiness {
+  id String @id @default(cuid())
+
+  score Float
+
+  resumeScore Float
+
+  interviewScore Float
+
+  codingScore Float
+
+  roadmapScore Float
+
+  strengths String[]
+
+  weaknesses String[]
+
+  recommendations String[]
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobMatch {
+  id String @id @default(cuid())
+
+  jobTitle String
+  company  String?
+
+  jobDescription String
+
+  matchScore Int
+
+  matchedSkills String[]
+  missingSkills String[]
+  suggestions   String[]
+
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model CompanyApplication {
+  id String @id @default(cuid())
+
+  company String
+
+  role String
+
+  status String
+
+  appliedAt DateTime @default(now())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model CampusCompany {
+  id String @id @default(cuid())
+
+  companyName String
+  role        String
+
+  package String
+
+  cgpaCriteria Float?
+
+  branches String[]
+
+  deadline DateTime?
+
+  status String
+
+  createdAt DateTime @default(now())
+}
